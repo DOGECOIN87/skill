@@ -1,0 +1,5 @@
+{
+  "name": "Arcade Skill Game",
+  "description": "A skill-based slot machine game replicating the Pace-O-Matic Pennsylvania Skill game format.",
+  "requestFramePermissions": []
+}

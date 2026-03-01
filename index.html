@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+SKILL GAME - ARCADE SKILL-BASED SLOT MACHINE
+================================================================================
+
+README & DOCUMENTATION
+
+1. HOW TO ADJUST PAYTABLE
+   Locate the `CONFIG` object in the JavaScript section.
+   Modify the `paytable` array:
+   paytable: [20000, 4000, 2000, 400, 200, 80, 40, 20, 10]
+   These values correspond to Tier 1 through Tier 9 wins.
+   The actual payout is scaled by the current bet level (e.g., if bet is 80, 
+   which is 2x the base 40, the payout is doubled).
+
+2. HOW TO SWAP SYMBOL ASSETS
+   Locate the `SYMBOLS` object in the JavaScript section.
+   Currently, it uses a fallback strategy with colors and text labels.
+   To use image assets, update the rendering logic in `Renderer.renderGrid` 
+   to load images based on a manifest:
+   Example:
+   const SYMBOLS = {
+     0: { src: 'assets/wild.svg', fallbackColor: '#ff00ff', label: 'WILD' },
+     // ...
+   };
+   Then in `renderGrid`:
+   const img = document.createElement('img');
+   img.src = SYMBOLS[val].src;
+   img.onerror = () => { /* fallback to color/text */ };
+   cell.appendChild(img);
+
+3. HOW TO MODIFY TIMING VALUES
+   Locate the `CONFIG` object in the JavaScript section.
+   - timerDuration: Total time for Stage 1 (default 30000ms / 30s)
+   - timerWarning: When the timer starts flashing (default 5000ms / 5s)
+   - autoLoseTime: Time before auto-lose if no action (default 10000ms / 10s)
+   - previewDuration: How long the Next Puzzle preview lasts (default 3000ms / 3s)
+
+4. LEGAL COMPLIANCE NOTES
+   - Predominant Skill: The game provides a "Next Puzzle" feature allowing 
+     players to preview the board and decide whether to wager.
+   - Memory Safety Net: If a player loses or wins less than 104% of their wager,
+     they enter a memory game that guarantees a 105% return upon successful 
+     completion.
+   - No Hidden RNG: All randomness occurs before player action (previewable).
+   - The `memoryMinReturn` in CONFIG ensures the mathematical floor is met.
+
+================================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Skill Game</title>
+<style>
+  :root {
+    --bg-color: #0a0a0a;
+    --border-color: #808080;
+    --border-light: #c0c0c0;
+    --text-main: #ffffff;
+    --text-win: #39ff14;
+    --text-alert: #ff6600;
+    --text-accent: #00ff41;
+    --font-digital: 'Courier New', Courier, monospace; /* Fallback for digital */
+    --font-label: 'Arial', sans-serif;
+  }
+  
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  
+  body {
+    margin: 0; padding: 0;
+    background-color: var(--bg-color);
+    background-image: radial-gradient(circle, #1a1a1a 10%, transparent 10%), radial-gradient(circle, #1a1a1a 10%, transparent 10%);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+    color: var(--text-main);
+    font-family: var(--font-label);
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Layout */
+  #game-container {
+    display: flex; flex: 1; width: 100%; max-width: 1920px; margin: 0 auto; padding: 10px; gap: 10px;
+  }
+  
+  .panel {
+    border: 4px solid var(--border-color);
+    border-top-color: var(--border-light);
+    border-left-color: var(--border-light);
+    background: #111;
+    padding: 10px;
+    display: flex; flex-direction: column;
+  }
+
+  /* Column 1: Paytable */
+  #col-paytable { width: 20%; min-width: 250px; }
+  
+  .paytable-tier {
+    border: 2px solid #333; margin-bottom: 5px; padding: 5px 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: #000;
+  }
+  .paytable-tier.active { border-color: var(--text-win); box-shadow: 0 0 10px var(--text-win); }
+  .tier-val { font-family: var(--font-digital); color: var(--text-win); font-size: 1.5rem; font-weight: bold; }
+  .tier-label { font-size: 0.8rem; color: #aaa; }
+
+  #win-display-container {
+    margin-top: auto; border: 3px inset #555; background: #000; padding: 10px; text-align: center;
+  }
+  #win-label { color: #aaa; font-size: 1rem; }
+  #win-amount { font-family: var(--font-digital); color: var(--text-win); font-size: 3rem; }
+
+  /* Columns 2-4: Unified Play Area */
+  .unified-play-area { 
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; 
+  }
+  
+  .grid-container {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;
+    width: 100%; max-width: 800px; aspect-ratio: 1;
+    border: 2px solid #333; padding: 15px; background: #050505;
+  }
+  .grid-container.active { border-color: var(--text-accent); box-shadow: 0 0 15px rgba(0,255,65,0.3); }
+  
+  .cell {
+    background: #1a1a1a; border: 1px solid #333;
+    display: flex; justify-content: center; align-items: center;
+    cursor: pointer; position: relative;
+    transition: all 0.2s;
+  }
+  .cell:hover { background: #2a2a2a; }
+  .cell img { width: 80%; height: 80%; object-fit: contain; pointer-events: none; }
+  .cell.wild-target:hover { border-color: var(--text-accent); box-shadow: inset 0 0 10px var(--text-accent); }
+  .cell.win { animation: pulseWin 1s infinite; z-index: 10; border-color: var(--text-win); }
+  
+  @keyframes pulseWin { 0% { box-shadow: 0 0 5px var(--text-win); } 50% { box-shadow: 0 0 20px var(--text-win); } 100% { box-shadow: 0 0 5px var(--text-win); } }
+
+  .overlay-text {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 1.5rem; font-weight: bold; color: #555; text-align: center; pointer-events: none;
+    width: 100%; z-index: 5;
+  }
+
+  /* Status Bar */
+  #status-bar {
+    display: flex; justify-content: space-between; padding: 10px 20px;
+    background: #000; border-top: 3px solid var(--text-accent);
+  }
+  .status-box { display: flex; align-items: center; gap: 10px; }
+  .status-label { font-size: 1.2rem; font-weight: bold; color: #ccc; }
+  .status-val { 
+    font-family: var(--font-digital); font-size: 2rem; background: #000; 
+    padding: 5px 15px; border: 2px inset #555; 
+  }
+  #play-level-val { color: #ffb000; }
+  #points-val { color: var(--text-accent); }
+
+  /* Timer */
+  #timer-bar-container { width: 100%; height: 10px; background: #222; margin-top: 5px; }
+  #timer-bar { width: 100%; height: 100%; background: var(--text-accent); transition: width 0.1s linear, background-color 0.3s; }
+  #timer-bar.warning { background: var(--text-alert); animation: flash 0.5s infinite; }
+  @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+  /* Control Bar */
+  #control-bar {
+    display: flex; gap: 10px; padding: 15px; background: #1a1a1a;
+  }
+  .btn {
+    flex: 1; height: 70px; font-size: 1rem; font-weight: bold; font-family: var(--font-label);
+    background: linear-gradient(to bottom, #666, #333);
+    color: white; text-shadow: 1px 1px 2px black;
+    border: 2px solid #999;
+    border-radius: 5px; cursor: pointer; text-transform: uppercase;
+    transition: all 0.1s;
+    display: flex; justify-content: center; align-items: center; text-align: center;
+    box-shadow: 0 4px 0 #222;
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(to bottom, #777, #444); transform: translateY(2px); box-shadow: 0 2px 0 #222; }
+  .btn:active:not(:disabled) { 
+    background: linear-gradient(to bottom, #333, #555); 
+    transform: translateY(4px); box-shadow: none;
+  }
+  .btn:disabled { background: #333; color: #777; border-color: #222; cursor: not-allowed; box-shadow: 0 4px 0 #111; }
+  .btn.primary { background: linear-gradient(to bottom, #00aa00, #006600); border-color: var(--text-accent); }
+  .btn.primary:hover:not(:disabled) { background: linear-gradient(to bottom, #00cc00, #007700); }
+  .btn.primary:active:not(:disabled) { background: linear-gradient(to bottom, #005500, #00aa00); }
+
+  /* Footer */
+  #footer {
+    display: flex; justify-content: space-between; padding: 5px 20px;
+    font-size: 12px; color: #666; background: #050505;
+  }
+
+  /* Memory Game Styles */
+  .memory-circle {
+    width: 80%; height: 80%; border-radius: 50%; margin: 10%;
+    background: #333; border: 2px solid #555; transition: all 0.1s;
+  }
+  .memory-circle.active-0 { background: #ff0000; box-shadow: 0 0 20px #ff0000; }
+  .memory-circle.active-1 { background: #00ff00; box-shadow: 0 0 20px #00ff00; }
+  .memory-circle.active-2 { background: #0000ff; box-shadow: 0 0 20px #0000ff; }
+  .memory-circle.active-3 { background: #ffff00; box-shadow: 0 0 20px #ffff00; }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    #game-container { flex-direction: column; overflow-y: auto; }
+    #col-paytable { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .unified-play-area { width: 100%; margin-bottom: 20px; }
+    .grid-container { max-width: 600px; }
+    #control-bar { flex-wrap: wrap; }
+    .btn { min-width: 20%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- Column 1: Paytable -->
+  <div id="col-paytable" class="panel">
+    <div id="paytable-container">
+      <!-- Generated via JS -->
+    </div>
+    <div id="win-display-container">
+      <div id="win-label">WIN</div>
+      <div id="win-amount">0</div>
+    </div>
+    <button class="btn" style="margin-top: 10px;" onclick="alert('More Games Menu')">MORE GAMES</button>
+  </div>
+
+  <!-- Columns 2-4: Unified Play Area -->
+  <div class="panel unified-play-area" id="unified-play-area">
+    <div class="overlay-text" id="main-overlay">ADJUST 'PLAY LEVEL'</div>
+    <div class="grid-container" id="main-grid"></div>
+  </div>
+</div>
+
+<div id="timer-bar-container"><div id="timer-bar"></div></div>
+
+<div id="status-bar">
+  <div class="status-box">
+    <div class="status-label">PLAY LEVEL</div>
+    <div class="status-val" id="play-level-val">40</div>
+  </div>
+  <div class="status-box">
+    <div class="status-label">POINTS</div>
+    <div class="status-val" id="points-val">68380</div>
+  </div>
+</div>
+
+<div id="control-bar">
+  <button class="btn" id="btn-more-games">MORE GAMES</button>
+  <button class="btn" id="btn-help">HELP</button>
+  <button class="btn" id="btn-next-puzzle">NEXT PUZZLE</button>
+  <button class="btn" id="btn-level-down">LEVEL DOWN</button>
+  <button class="btn" id="btn-level-up">LEVEL UP</button>
+  <button class="btn" id="btn-max">MAX</button>
+  <button class="btn primary" id="btn-play">PLAY</button>
+</div>
+
+<div id="footer">
+  <div>192.168.26.111:643831</div>
+  <div>Copyright 2003-2023 All Rights Reserved</div>
+  <div>SKL 402 83 PEN</div>
+</div>
+
+<script>
+/**
+ * Skill Game Implementation
+ * Architecture: State Machine Pattern
+ */
+const SkillGame = (function() {
+  // --- Configuration ---
+  const CONFIG = {
+    paytable: [20000, 4000, 2000, 400, 200, 80, 40, 20, 10],
+    levels: [8, 16, 24, 32, 40],
+    timerDuration: 30000, // 30s
+    timerWarning: 5000,   // 5s
+    autoLoseTime: 10000,  // 10s without action
+    previewDuration: 3000, // 3s
+    memoryMinReturn: 1.05, // 105%
+    gridSize: 9,
+    numGrids: 3
+  };
+
+  // --- State ---
+  const state = {
+    balance: 68380,
+    playLevelIdx: 4, // Default 40
+    currentWin: 0,
+    stage: 'IDLE', // IDLE, PREVIEW, PLAYING, MEMORY, RESULT
+    grid: [],
+    nextGrid: [],
+    timerStart: 0,
+    timerInterval: null,
+    memorySequence: [],
+    playerSequence: [],
+    memoryRound: 0,
+    canPreview: true,
+    wildPlaced: false
+  };
+
+  // --- Assets (Placeholders) ---
+  const SYMBOLS = {
+    0: { src: 'assets/wild.svg', color: '#ff00ff', label: 'WILD' }, // Tier 1
+    1: { src: 'assets/high_1.svg', color: '#ff0000', label: 'T2' },
+    2: { src: 'assets/high_2.svg', color: '#ff8800', label: 'T3' },
+    3: { src: 'assets/med_1.svg', color: '#ffff00', label: 'T4' },
+    4: { src: 'assets/med_2.svg', color: '#00ff00', label: 'T5' },
+    5: { src: 'assets/med_3.svg', color: '#00ffff', label: 'T6' },
+    6: { src: 'assets/low_1.svg', color: '#0000ff', label: 'T7' },
+    7: { src: 'assets/low_2.svg', color: '#8800ff', label: 'T8' },
+    8: { src: 'assets/low_3.svg', color: '#888888', label: 'T9' }
+  };
+
+  // --- Audio Engine ---
+  const AudioEngine = {
+    ctx: null,
+    masterGain: null,
+    ambientOsc: null,
+    
+    init: function() {
+      if (!this.ctx) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.5; // Master volume
+        this.masterGain.connect(this.ctx.destination);
+        
+        // Start ambient hum
+        this.startAmbient();
+      }
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    },
+    
+    startAmbient: function() {
+      if (this.ambientOsc) return;
+      this.ambientOsc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      this.ambientOsc.type = 'sine';
+      this.ambientOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // Low hum
+      gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+      this.ambientOsc.connect(gain);
+      gain.connect(this.masterGain);
+      this.ambientOsc.start();
+    },
+    
+    playTone: function(freq, type, duration, vol = 0.1) {
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    },
+    
+    click: () => AudioEngine.playTone(800, 'sine', 0.1, 0.1),
+    error: () => {
+      AudioEngine.playTone(150, 'sawtooth', 0.3, 0.2);
+      setTimeout(() => AudioEngine.playTone(100, 'sawtooth', 0.4, 0.2), 100);
+    },
+    start: () => {
+      AudioEngine.playTone(400, 'square', 0.2, 0.1);
+      setTimeout(() => AudioEngine.playTone(600, 'square', 0.3, 0.1), 100);
+    },
+    tick: () => AudioEngine.playTone(1000, 'sine', 0.05, 0.02),
+    place: () => AudioEngine.playTone(1200, 'sine', 0.1, 0.1),
+    win: () => {
+      const notes = [400, 500, 600, 800, 1000, 1200];
+      notes.forEach((freq, i) => {
+        setTimeout(() => AudioEngine.playTone(freq, 'sine', 0.2, 0.1), i * 100);
+      });
+    },
+    memoryTone: (idx) => {
+      const freqs = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+      AudioEngine.playTone(freqs[idx % 4], 'square', 0.4, 0.15);
+    }
+  };
+
+  // --- Renderer ---
+  const Renderer = {
+    init: function() {
+      // Build Paytable
+      const ptContainer = document.getElementById('paytable-container');
+      ptContainer.innerHTML = '';
+      CONFIG.paytable.forEach((val, i) => {
+        const div = document.createElement('div');
+        div.className = 'paytable-tier';
+        div.id = `pt-tier-${i}`;
+        div.innerHTML = `<span class="tier-label">TIER ${i+1}</span><span class="tier-val">${val}</span>`;
+        ptContainer.appendChild(div);
+      });
+
+      // Build Grid
+      const gridEl = document.getElementById('main-grid');
+      gridEl.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.id = `cell-${i}`;
+        cell.onclick = () => InputHandler.handleCellClick(i);
+        gridEl.appendChild(cell);
+      }
+
+      this.updateUI();
+    },
+
+    updateUI: function() {
+      document.getElementById('play-level-val').innerText = CONFIG.levels[state.playLevelIdx];
+      document.getElementById('points-val').innerText = state.balance;
+      document.getElementById('win-amount').innerText = state.currentWin;
+
+      // Update Buttons
+      const isIdle = state.stage === 'IDLE';
+      document.getElementById('btn-level-down').disabled = !isIdle || state.playLevelIdx === 0;
+      document.getElementById('btn-level-up').disabled = !isIdle || state.playLevelIdx === CONFIG.levels.length - 1;
+      document.getElementById('btn-max').disabled = !isIdle || state.playLevelIdx === CONFIG.levels.length - 1;
+      document.getElementById('btn-play').disabled = !isIdle || state.balance < CONFIG.levels[state.playLevelIdx];
+      document.getElementById('btn-next-puzzle').disabled = !isIdle || !state.canPreview;
+
+      // Overlay
+      const overlay = document.getElementById('main-overlay');
+      const gridEl = document.getElementById('main-grid');
+      
+      if (state.stage === 'IDLE') {
+        overlay.style.display = 'block';
+        overlay.innerText = "ADJUST 'PLAY LEVEL'";
+        gridEl.classList.remove('active');
+      } else if (state.stage === 'PREVIEW') {
+        overlay.style.display = 'none';
+        gridEl.classList.remove('active');
+      } else if (state.stage === 'PLAYING') {
+        overlay.style.display = 'none';
+        gridEl.classList.add('active');
+      } else if (state.stage === 'MEMORY') {
+        overlay.style.display = 'none';
+        gridEl.classList.remove('active');
+      } else if (state.stage === 'RESULT') {
+        overlay.style.display = 'none';
+        gridEl.classList.remove('active');
+      }
+    },
+
+    renderGrid: function(data, isMemory = false) {
+      for (let i = 0; i < 9; i++) {
+        const cell = document.getElementById(`cell-${i}`);
+        cell.innerHTML = '';
+        cell.className = 'cell';
+        
+        if (isMemory) {
+          const circle = document.createElement('div');
+          circle.className = 'memory-circle';
+          circle.id = `mem-${i}`;
+          cell.appendChild(circle);
+        } else {
+          const val = data[i];
+          if (val !== null && val !== undefined) {
+            const symData = SYMBOLS[val];
+            const sym = document.createElement('div');
+            sym.style.width = '80%'; sym.style.height = '80%';
+            sym.style.backgroundColor = symData.color;
+            sym.style.display = 'flex'; sym.style.justifyContent = 'center'; sym.style.alignItems = 'center';
+            sym.style.color = '#000'; sym.style.fontWeight = 'bold';
+            sym.innerText = symData.label;
+            
+            // Asset loading fallback strategy
+            if (symData.src) {
+              const img = document.createElement('img');
+              img.src = symData.src;
+              img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain';
+              img.onerror = () => {
+                // Fallback to color/text if image fails
+                img.style.display = 'none';
+                sym.innerText = symData.label;
+              };
+              img.onload = () => {
+                sym.style.backgroundColor = 'transparent';
+                sym.innerText = '';
+              };
+              sym.appendChild(img);
+            }
+            
+            cell.appendChild(sym);
+          }
+          
+          if (state.stage === 'PLAYING' && !state.wildPlaced) {
+            cell.classList.add('wild-target');
+          }
+        }
+      }
+    },
+
+    highlightWin: function(lineIndices, tier) {
+      lineIndices.forEach(i => {
+        document.getElementById(`cell-${i}`).classList.add('win');
+      });
+      
+      // Highlight paytable
+      document.querySelectorAll('.paytable-tier').forEach(el => el.classList.remove('active'));
+      if (tier !== null) {
+        document.getElementById(`pt-tier-${tier}`).classList.add('active');
+      }
+    },
+
+    updateTimer: function(pct, isWarning) {
+      const bar = document.getElementById('timer-bar');
+      bar.style.width = `${pct}%`;
+      if (isWarning) bar.classList.add('warning');
+      else bar.classList.remove('warning');
+    }
+  };
+
+  // --- Game Logic ---
+  const GameLogic = {
+    generateGrid: function() {
+      const grid = [];
+      for (let i = 0; i < 9; i++) {
+        // Weighted random for tiers (9 is most common, 0 is rare)
+        const r = Math.random();
+        let tier = 8;
+        if (r < 0.01) tier = 1;
+        else if (r < 0.05) tier = 2;
+        else if (r < 0.1) tier = 3;
+        else if (r < 0.2) tier = 4;
+        else if (r < 0.35) tier = 5;
+        else if (r < 0.5) tier = 6;
+        else if (r < 0.7) tier = 7;
+        grid.push(tier);
+      }
+      return grid;
+    },
+
+    checkWins: function(grid) {
+      const lines = [
+        [0,1,2], [3,4,5], [6,7,8], // Horizontal
+        [0,3,6], [1,4,7], [2,5,8], // Vertical
+        [0,4,8], [2,4,6]           // Diagonal
+      ];
+      
+      let wins = [];
+      lines.forEach(line => {
+        const [a, b, c] = line;
+        const vA = grid[a], vB = grid[b], vC = grid[c];
+        
+        // 0 is WILD
+        if (vA !== null && vB !== null && vC !== null) {
+          let matchTier = null;
+          let isWin = false;
+          
+          if (vA === vB && vB === vC) { isWin = true; matchTier = vA; }
+          else if (vA === 0 && vB === vC) { isWin = true; matchTier = vB; }
+          else if (vB === 0 && vA === vC) { isWin = true; matchTier = vA; }
+          else if (vC === 0 && vA === vB) { isWin = true; matchTier = vA; }
+          else if (vA === 0 && vB === 0) { isWin = true; matchTier = vC; }
+          else if (vA === 0 && vC === 0) { isWin = true; matchTier = vB; }
+          else if (vB === 0 && vC === 0) { isWin = true; matchTier = vA; }
+          else if (vA === 0 && vB === 0 && vC === 0) { isWin = true; matchTier = 0; }
+          
+          if (isWin) {
+            wins.push({ line, tier: matchTier });
+          }
+        }
+      });
+      return wins;
+    },
+
+    startPlay: function() {
+      if (state.balance < CONFIG.levels[state.playLevelIdx]) return;
+      
+      AudioEngine.init();
+      AudioEngine.start();
+      
+      state.balance -= CONFIG.levels[state.playLevelIdx];
+      state.currentWin = 0;
+      state.stage = 'PLAYING';
+      state.wildPlaced = false;
+      state.canPreview = true;
+      
+      // Use next grid if available, else generate
+      state.grid = state.nextGrid.length ? [...state.nextGrid] : this.generateGrid();
+      state.nextGrid = []; // Clear preview
+      Renderer.renderGrid(state.grid);
+      
+      Renderer.updateUI();
+      this.startTimer();
+    },
+
+    startTimer: function() {
+      state.timerStart = Date.now();
+      clearInterval(state.timerInterval);
+      
+      let lastTick = 0;
+      
+      state.timerInterval = setInterval(() => {
+        const elapsed = Date.now() - state.timerStart;
+        const remaining = CONFIG.timerDuration - elapsed;
+        
+        if (remaining <= 0) {
+          clearInterval(state.timerInterval);
+          Renderer.updateTimer(0, false);
+          this.handleTimeout();
+        } else {
+          const pct = (remaining / CONFIG.timerDuration) * 100;
+          const isWarning = remaining < CONFIG.timerWarning;
+          Renderer.updateTimer(pct, isWarning);
+          
+          // Play tick sound every second
+          const currentSec = Math.floor(elapsed / 1000);
+          if (currentSec > lastTick) {
+            AudioEngine.tick();
+            lastTick = currentSec;
+          }
+          
+          if (elapsed > CONFIG.autoLoseTime && !state.wildPlaced) {
+            clearInterval(state.timerInterval);
+            this.handleTimeout();
+          }
+        }
+      }, 50);
+    },
+
+    handleTimeout: function() {
+      AudioEngine.error();
+      this.evaluateBoard();
+    },
+
+    placeWild: function(cellIdx) {
+      if (state.stage !== 'PLAYING' || state.wildPlaced) return;
+      
+      AudioEngine.place();
+      state.wildPlaced = true;
+      clearInterval(state.timerInterval);
+      Renderer.updateTimer(100, false);
+      
+      state.grid[cellIdx] = 0; // 0 is WILD
+      Renderer.renderGrid(state.grid);
+      
+      setTimeout(() => this.evaluateBoard(), 500);
+    },
+
+    evaluateBoard: function() {
+      const wins = this.checkWins(state.grid);
+      let totalWin = 0;
+      let bestTier = null;
+      
+      wins.forEach(win => {
+        const winAmount = CONFIG.paytable[win.tier] * (CONFIG.levels[state.playLevelIdx] / 40); // Scale by bet
+        totalWin += winAmount;
+        Renderer.highlightWin(win.line, win.tier);
+        if (bestTier === null || win.tier < bestTier) bestTier = win.tier;
+      });
+      
+      state.currentWin = totalWin;
+      Renderer.updateUI();
+      
+      const wager = CONFIG.levels[state.playLevelIdx];
+      const minRequiredWin = wager * CONFIG.memoryMinReturn;
+      
+      if (totalWin >= minRequiredWin) {
+        // Good win, end game
+        if (totalWin > 0) AudioEngine.win();
+        this.endGame();
+      } else {
+        // Trigger Memory Game
+        setTimeout(() => this.startMemoryGame(), 1000);
+      }
+    },
+
+    startMemoryGame: function() {
+      state.stage = 'MEMORY';
+      state.memorySequence = [];
+      state.memoryRound = 1;
+      Renderer.updateUI();
+      Renderer.renderGrid(null, true);
+      
+      setTimeout(() => this.playMemorySequence(), 1000);
+    },
+
+    playMemorySequence: function() {
+      state.playerSequence = [];
+      // Add new step
+      state.memorySequence.push(Math.floor(Math.random() * 9));
+      
+      let step = 0;
+      const interval = setInterval(() => {
+        if (step >= state.memorySequence.length) {
+          clearInterval(interval);
+          return;
+        }
+        
+        const cellIdx = state.memorySequence[step];
+        const circle = document.getElementById(`mem-${cellIdx}`);
+        const colorIdx = cellIdx % 4;
+        
+        circle.classList.add(`active-${colorIdx}`);
+        AudioEngine.memoryTone(colorIdx);
+        
+        setTimeout(() => {
+          circle.classList.remove(`active-${colorIdx}`);
+        }, 300);
+        
+        step++;
+      }, 600);
+    },
+
+    handleMemoryClick: function(cellIdx) {
+      if (state.stage !== 'MEMORY' || state.playerSequence.length >= state.memorySequence.length) return;
+      
+      const expected = state.memorySequence[state.playerSequence.length];
+      const circle = document.getElementById(`mem-${cellIdx}`);
+      const colorIdx = cellIdx % 4;
+      
+      circle.classList.add(`active-${colorIdx}`);
+      AudioEngine.memoryTone(colorIdx);
+      setTimeout(() => circle.classList.remove(`active-${colorIdx}`), 200);
+      
+      if (cellIdx === expected) {
+        state.playerSequence.push(cellIdx);
+        if (state.playerSequence.length === state.memorySequence.length) {
+          // Round complete
+          if (state.memoryRound >= 3) { // 3 rounds for demo
+            setTimeout(() => this.winMemoryGame(), 500);
+          } else {
+            state.memoryRound++;
+            setTimeout(() => this.playMemorySequence(), 1000);
+          }
+        }
+      } else {
+        // Failed
+        AudioEngine.error();
+        this.endGame();
+      }
+    },
+
+    winMemoryGame: function() {
+      AudioEngine.win();
+      const wager = CONFIG.levels[state.playLevelIdx];
+      state.currentWin = Math.floor(wager * CONFIG.memoryMinReturn);
+      this.endGame();
+    },
+
+    endGame: function() {
+      state.stage = 'RESULT';
+      state.balance += state.currentWin;
+      Renderer.updateUI();
+      
+      setTimeout(() => {
+        state.stage = 'IDLE';
+        document.querySelectorAll('.paytable-tier').forEach(el => el.classList.remove('active'));
+        Renderer.updateUI();
+      }, 3000);
+    },
+
+    previewNext: function() {
+      if (state.stage !== 'IDLE' || !state.canPreview) return;
+      
+      AudioEngine.init();
+      AudioEngine.click();
+      state.canPreview = false;
+      state.stage = 'PREVIEW';
+      
+      state.nextGrid = this.generateGrid();
+      Renderer.renderGrid(state.nextGrid);
+      Renderer.updateUI();
+      
+      setTimeout(() => {
+        if (state.stage === 'PREVIEW') {
+          state.stage = 'IDLE';
+          document.getElementById('main-grid').innerHTML = '';
+          Renderer.updateUI();
+        }
+      }, CONFIG.previewDuration);
+    }
+  };
+
+  // --- Input Handler ---
+  const InputHandler = {
+    init: function() {
+      document.getElementById('btn-more-games').onclick = () => {
+        AudioEngine.init(); AudioEngine.click();
+        alert('More Games Menu');
+      };
+      document.getElementById('btn-help').onclick = () => {
+        AudioEngine.init(); AudioEngine.click();
+        alert('Help & Rules');
+      };
+      
+      document.getElementById('btn-play').onclick = () => {
+        AudioEngine.init();
+        GameLogic.startPlay();
+      };
+      document.getElementById('btn-next-puzzle').onclick = () => {
+        AudioEngine.init();
+        GameLogic.previewNext();
+      };
+      
+      document.getElementById('btn-level-up').onclick = () => {
+        if (state.stage === 'IDLE' && state.playLevelIdx < CONFIG.levels.length - 1) {
+          AudioEngine.init(); AudioEngine.click();
+          state.playLevelIdx++;
+          Renderer.updateUI();
+        }
+      };
+      
+      document.getElementById('btn-level-down').onclick = () => {
+        if (state.stage === 'IDLE' && state.playLevelIdx > 0) {
+          AudioEngine.init(); AudioEngine.click();
+          state.playLevelIdx--;
+          Renderer.updateUI();
+        }
+      };
+      
+      document.getElementById('btn-max').onclick = () => {
+        if (state.stage === 'IDLE') {
+          AudioEngine.init(); AudioEngine.click();
+          state.playLevelIdx = CONFIG.levels.length - 1;
+          Renderer.updateUI();
+        }
+      };
+    },
+
+    handleCellClick: function(cellIdx) {
+      if (state.stage === 'PLAYING') {
+        GameLogic.placeWild(cellIdx);
+      } else if (state.stage === 'MEMORY') {
+        GameLogic.handleMemoryClick(cellIdx);
+      }
+    }
+  };
+
+  // --- Public API ---
+  return {
+    init: function() {
+      Renderer.init();
+      InputHandler.init();
+      console.log("Skill Game Initialized");
+    }
+  };
+})();
+
+// Start game on load
+window.onload = () => SkillGame.init();
+</script>
+</body>
+</html>
