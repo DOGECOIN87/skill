@@ -23,7 +23,6 @@
             flex-direction: column;
         }
         
-        /* Main Game Container */
         .game-container {
             display: flex;
             flex: 1;
@@ -32,13 +31,22 @@
             min-height: 0;
         }
         
-        /* Column 1: Paytable Sidebar (20%) */
         .paytable-column {
-            width: 20%;
-            min-width: 200px;
+            width: 10%;
+            min-width: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            justify-content: space-between;
+            height: 100%;
+        }
+        
+        .paytable-content {
             display: flex;
             flex-direction: column;
             gap: 5px;
+            flex: 1;
+            justify-content: space-between;
         }
         
         .tier-row {
@@ -47,22 +55,32 @@
             align-items: center;
             background: #1a1a1a;
             border: 2px solid #444;
-            padding: 8px 12px;
+            padding: 6px 8px;
             height: 50px;
+            gap: 8px;
         }
         
-        .tier-label {
-            font-family: 'Oswald', sans-serif;
-            font-size: 14px;
-            color: #888;
-            text-transform: uppercase;
+        .tier-symbol {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .tier-symbol img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
         }
         
         .tier-value {
             font-family: 'VT323', monospace;
-            font-size: 28px;
+            font-size: 20px;
             color: #39ff14;
             text-shadow: 0 0 10px #39ff14;
+            flex: 1;
+            text-align: right;
         }
         
         .win-display {
@@ -111,9 +129,8 @@
             box-shadow: 0 0 0 #222;
         }
         
-        /* Columns 2-4: Unified Play Area (80%) */
         .play-area {
-            width: 80%;
+            width: 90%;
             display: flex;
             flex-direction: column;
             background: #111;
@@ -140,6 +157,7 @@
             position: relative;
             cursor: pointer;
             transition: all 0.2s;
+            overflow: hidden;
         }
         
         .grid-cell:hover {
@@ -158,17 +176,30 @@
         }
         
         .cell-symbol {
-            width: 80%;
-            height: 80%;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'VT323', monospace;
-            font-size: 24px;
-            color: #fff;
+            padding: 5px;
+            transition: transform 0.15s ease-out;
         }
         
-        /* Status Message Overlay */
+        .cell-symbol img {
+            max-width: 150px;
+            max-height: 150px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        
+        .cell-symbol.wild-text {
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            color: #39ff14;
+            text-shadow: 0 0 10px #39ff14;
+        }
+        
         .status-message {
             position: absolute;
             top: 50%;
@@ -187,13 +218,11 @@
             display: none;
         }
         
-        /* Bottom Control Section */
         .control-section {
             background: #000;
             border-top: 3px solid #39ff14;
         }
         
-        /* Status Bar (Play Level / Points) */
         .status-bar {
             display: flex;
             justify-content: space-between;
@@ -235,7 +264,6 @@
             text-shadow: 0 0 10px #39ff14;
         }
         
-        /* Button Bar */
         .button-bar {
             display: flex;
             gap: 10px;
@@ -257,8 +285,6 @@
             cursor: pointer;
             box-shadow: 0 4px 0 #222, inset 0 1px 0 rgba(255,255,255,0.2);
             transition: all 0.05s;
-            position: relative;
-            overflow: hidden;
         }
         
         .game-btn:hover {
@@ -275,8 +301,6 @@
         .game-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: 0 4px 0 #222;
         }
         
         .game-btn.play {
@@ -289,7 +313,6 @@
             background: linear-gradient(to bottom, #00bb00, #007700);
         }
         
-        /* Footer */
         .footer {
             display: flex;
             justify-content: space-between;
@@ -301,7 +324,6 @@
             color: #555;
         }
         
-        /* Timer Bar */
         .timer-container {
             position: absolute;
             top: 10px;
@@ -325,7 +347,6 @@
             transition: width 0.1s linear;
         }
         
-        /* Memory Game Circles */
         .memory-circle {
             width: 80%;
             height: 80%;
@@ -344,10 +365,32 @@
         .memory-circle.color-2 { background: #0000ff; color: #0000ff; }
         .memory-circle.color-3 { background: #ffff00; color: #ffff00; }
         
-        /* Animations */
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
+        }
+        
+        @keyframes spinVertical {
+            0% { transform: translateY(0px); opacity: 1; }
+            25% { transform: translateY(-50px); opacity: 0.7; }
+            50% { transform: translateY(-100px); opacity: 0.3; }
+            75% { transform: translateY(-50px); opacity: 0.7; }
+            100% { transform: translateY(0px); opacity: 1; }
+        }
+        
+        @keyframes spinBlur {
+            0% { filter: blur(0px); transform: scale(1); }
+            50% { filter: blur(3px); transform: scale(0.95); }
+            100% { filter: blur(0px); transform: scale(1); }
+        }
+        
+        .grid-cell.spinning {
+            border-color: #39ff14;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.5);
+        }
+        
+        .grid-cell.spinning .cell-symbol {
+            animation: spinVertical 0.15s ease-in-out infinite, spinBlur 0.3s ease-in-out infinite;
         }
         
         .winning-cell {
@@ -355,72 +398,56 @@
             border-color: #39ff14 !important;
             box-shadow: 0 0 30px #39ff14 !important;
         }
-        
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .paytable-column {
-                min-width: 150px;
-            }
-            .tier-value {
-                font-size: 22px;
-            }
-            .game-btn {
-                font-size: 14px;
-                height: 60px;
-            }
-        }
     </style>
 </head>
 <body>
     <div class="game-container">
-        <!-- Column 1: Paytable -->
         <div class="paytable-column">
-            <div class="tier-row">
-                <span class="tier-label">Tier 1</span>
-                <span class="tier-value">20000</span>
+            <div class="paytable-content">
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/alon.png" alt="Alon"></div>
+                    <span class="tier-value">20000</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/oscar.png" alt="Oscar"></div>
+                    <span class="tier-value">4000</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/sky-garbage.png" alt="Sky Garbage"></div>
+                    <span class="tier-value">2000</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/shredder.png" alt="Shredder"></div>
+                    <span class="tier-value">400</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/gorbios.png" alt="Gorbios"></div>
+                    <span class="tier-value">200</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/pump-pill.png" alt="Pump Pill"></div>
+                    <span class="tier-value">80</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/digibin.png" alt="Digibin"></div>
+                    <span class="tier-value">40</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/box.png" alt="Box"></div>
+                    <span class="tier-value">20</span>
+                </div>
+                <div class="tier-row">
+                    <div class="tier-symbol"><img src="/symbols/matress.png" alt="Matress"></div>
+                    <span class="tier-value">10</span>
+                </div>
+                
+                <div class="win-display">
+                    <div class="win-label">Win</div>
+                    <div class="win-value" id="winDisplay">0</div>
+                </div>
             </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 2</span>
-                <span class="tier-value">4000</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 3</span>
-                <span class="tier-value">2000</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 4</span>
-                <span class="tier-value">400</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 5</span>
-                <span class="tier-value">200</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 6</span>
-                <span class="tier-value">80</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 7</span>
-                <span class="tier-value">40</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 8</span>
-                <span class="tier-value">20</span>
-            </div>
-            <div class="tier-row">
-                <span class="tier-label">Tier 9</span>
-                <span class="tier-value">10</span>
-            </div>
-            
-            <div class="win-display">
-                <div class="win-label">Win</div>
-                <div class="win-value" id="winDisplay">0</div>
-            </div>
-            
-            <button class="more-games-btn" onclick="game.moreGames()">More Games</button>
         </div>
         
-        <!-- Columns 2-4: Unified Play Area -->
         <div class="play-area">
             <div class="timer-container" id="timerContainer">
                 <div class="timer-bar" id="timerBar"></div>
@@ -428,14 +455,11 @@
             
             <div class="grid-container" id="gridContainer">
                 <div class="status-message" id="statusMessage">Adjust 'Play Level'</div>
-                <!-- Grid cells generated by JS -->
             </div>
         </div>
     </div>
     
-    <!-- Bottom Control Section -->
     <div class="control-section">
-        <!-- Status Bar -->
         <div class="status-bar">
             <div class="status-group">
                 <span class="status-label">Play Level</span>
@@ -447,9 +471,7 @@
             </div>
         </div>
         
-        <!-- Button Bar -->
         <div class="button-bar">
-            <button class="game-btn" onclick="game.moreGames()">More Games</button>
             <button class="game-btn" onclick="game.help()">Help</button>
             <button class="game-btn" onclick="game.nextPuzzle()" id="nextPuzzleBtn">Next Puzzle</button>
             <button class="game-btn" onclick="game.levelDown()">Level Down</button>
@@ -458,7 +480,6 @@
             <button class="game-btn play" onclick="game.play()" id="playBtn">Play</button>
         </div>
         
-        <!-- Footer -->
         <div class="footer">
             <span>192.168.26.111:643831</span>
             <span>Copyright 2003-2023 All Rights Reserved</span>
@@ -468,12 +489,26 @@
 
     <script>
         const SkillGame = (function() {
-            // Game State
+            // Symbol images mapping
+            const SYMBOL_IMAGES = [
+                '/symbols/alon.png',
+                '/symbols/oscar.png',
+                '/symbols/sky-garbage.png',
+                '/symbols/shredder.png',
+                '/symbols/gorbios.png',
+                '/symbols/pump-pill.png',
+                '/symbols/digibin.png',
+                '/symbols/box.png',
+                '/symbols/matress.png'
+            ];
+            
+            const BASE_PAYOUTS = [20000, 4000, 2000, 400, 200, 80, 40, 20, 10];
+            
             const state = {
-                balance: 68380,
-                playLevel: 40,
+                balance: 1000,
+                playLevel: 1,
                 currentWin: 0,
-                stage: 'IDLE', // IDLE, PREVIEW, PLAYING, MEMORY, RESULT
+                stage: 'IDLE',
                 grid: Array(9).fill(null),
                 nextGrid: Array(9).fill(null),
                 timer: 30,
@@ -485,7 +520,6 @@
                 previewShown: false
             };
             
-            // DOM Elements
             const elements = {
                 gridContainer: document.getElementById('gridContainer'),
                 statusMessage: document.getElementById('statusMessage'),
@@ -498,7 +532,6 @@
                 nextPuzzleBtn: document.getElementById('nextPuzzleBtn')
             };
             
-            // Initialize grid cells
             function initGrid() {
                 elements.gridContainer.innerHTML = '';
                 elements.gridContainer.appendChild(elements.statusMessage);
@@ -518,12 +551,10 @@
                 }
             }
             
-            // Generate random grid
             function generateGrid() {
                 return Array(9).fill(0).map(() => Math.floor(Math.random() * 9));
             }
             
-            // Handle cell clicks
             function handleCellClick(index) {
                 if (state.stage === 'PLAYING') {
                     placeWild(index);
@@ -532,7 +563,6 @@
                 }
             }
             
-            // Place wild symbol
             function placeWild(index) {
                 clearInterval(state.timerInterval);
                 state.grid[index] = 'WILD';
@@ -540,12 +570,11 @@
                 checkWin();
             }
             
-            // Check for winning lines
             function checkWin() {
                 const lines = [
-                    [0,1,2], [3,4,5], [6,7,8], // Horizontal
-                    [0,3,6], [1,4,7], [2,5,8], // Vertical
-                    [0,4,8], [2,4,6]             // Diagonal
+                    [0,1,2], [3,4,5], [6,7,8],
+                    [0,3,6], [1,4,7], [2,5,8],
+                    [0,4,8], [2,4,6]
                 ];
                 
                 let totalWin = 0;
@@ -555,14 +584,11 @@
                     const symbols = line.map(i => state.grid[i]);
                     const unique = [...new Set(symbols)];
                     
-                    // Check for 3 matching or 2 matching + wild
                     if (unique.length === 1 && unique[0] !== null) {
-                        // 3 matching
                         const tier = unique[0] === 'WILD' ? 0 : unique[0];
                         totalWin += getPayout(tier);
                         winningLines.push(line);
                     } else if (unique.length === 2 && unique.includes('WILD')) {
-                        // 2 matching + wild
                         const tier = unique.find(s => s !== 'WILD');
                         totalWin += getPayout(tier);
                         winningLines.push(line);
@@ -579,26 +605,29 @@
                 }
             }
             
-            // Get payout for tier
             function getPayout(tier) {
-                const payouts = [20000, 4000, 2000, 400, 200, 80, 40, 20, 10];
-                return payouts[tier] || 0;
+                return BASE_PAYOUTS[tier] * state.playLevel;
             }
             
-            // Highlight winning lines
+            function updatePaytable() {
+                const tierRows = document.querySelectorAll('.tier-row');
+                tierRows.forEach((row, index) => {
+                    const valueSpan = row.querySelector('.tier-value');
+                    valueSpan.textContent = BASE_PAYOUTS[index] * state.playLevel;
+                });
+            }
+            
             function highlightWinningLines(lines) {
                 lines.flat().forEach(index => {
                     document.querySelector(`[data-index="${index}"]`).classList.add('winning-cell');
                 });
             }
             
-            // Start memory game (safety net)
             function startMemoryGame() {
                 state.stage = 'MEMORY';
                 state.memorySequence = [];
                 state.playerSequence = [];
                 
-                // Generate sequence
                 for (let i = 0; i < 5; i++) {
                     state.memorySequence.push(Math.floor(Math.random() * 9));
                 }
@@ -607,7 +636,6 @@
                 playMemorySequence();
             }
             
-            // Play memory sequence
             function playMemorySequence() {
                 let i = 0;
                 const interval = setInterval(() => {
@@ -622,7 +650,6 @@
                 }, 800);
             }
             
-            // Flash cell for memory game
             function flashCell(index) {
                 const cell = document.querySelector(`[data-index="${index}"]`);
                 const circle = document.createElement('div');
@@ -630,37 +657,33 @@
                 circle.style.background = state.memoryColors[index % 4];
                 circle.classList.add('active');
                 
-                cell.innerHTML = '';
-                cell.appendChild(circle);
+                const cellSymbol = cell.querySelector('.cell-symbol');
+                const originalContent = cellSymbol.innerHTML;
+                cellSymbol.innerHTML = '';
+                cellSymbol.appendChild(circle);
                 
                 setTimeout(() => {
-                    cell.innerHTML = '';
+                    cellSymbol.innerHTML = originalContent;
                 }, 400);
             }
             
-            // Handle memory input
             function handleMemoryInput(index) {
                 state.playerSequence.push(index);
                 flashCell(index);
                 
-                // Check if correct so far
                 const current = state.playerSequence.length - 1;
                 if (state.playerSequence[current] !== state.memorySequence[current]) {
-                    // Wrong - game over
                     endGame(false);
                     return;
                 }
                 
-                // Check if complete
                 if (state.playerSequence.length === state.memorySequence.length) {
-                    // Success - guaranteed 105% return
                     state.currentWin = Math.floor(state.playLevel * 1.05);
                     updateDisplay();
                     setTimeout(() => endGame(true), 1000);
                 }
             }
             
-            // End game
             function endGame(won) {
                 state.stage = 'IDLE';
                 if (won) {
@@ -674,46 +697,116 @@
                 updateDisplay();
                 elements.playBtn.textContent = 'Play';
                 elements.playBtn.disabled = false;
+                
+                // Check if player can afford to play
+                if (state.balance < state.playLevel) {
+                    showStatus('Insufficient Balance!');
+                    elements.playBtn.disabled = true;
+                }
             }
             
-            // Update display
             function updateDisplay() {
                 elements.winDisplay.textContent = state.currentWin;
                 elements.playLevel.textContent = state.playLevel;
                 elements.points.textContent = state.balance;
+                updatePaytable();
+                
+                // Disable level down button if at level 1
+                const levelDownBtn = document.querySelector('.game-btn[onclick="game.levelDown()"]');
+                if (levelDownBtn) {
+                    levelDownBtn.disabled = state.playLevel <= 1;
+                }
             }
             
-            // Show status message
             function showStatus(text) {
                 elements.statusMessage.textContent = text;
                 elements.statusMessage.classList.remove('hidden');
             }
             
-            // Hide status
             function hideStatus() {
                 elements.statusMessage.classList.add('hidden');
             }
             
-            // Render grid
             function renderGrid() {
                 state.grid.forEach((symbol, index) => {
                     const cell = document.getElementById(`cell-${index}`);
                     const cellDiv = document.querySelector(`[data-index="${index}"]`);
                     
                     if (symbol === 'WILD') {
+                        cell.className = 'cell-symbol wild-text';
                         cell.textContent = 'WILD';
                         cellDiv.classList.add('wild');
+                        cellDiv.classList.remove('spinning');
                     } else if (symbol !== null) {
-                        cell.textContent = `T${symbol + 1}`;
-                        cellDiv.classList.remove('wild');
+                        cell.className = 'cell-symbol';
+                        cell.innerHTML = `<img src="${SYMBOL_IMAGES[symbol]}" alt="Symbol ${symbol + 1}">`;
+                        cellDiv.classList.remove('wild', 'spinning');
                     } else {
-                        cell.textContent = '';
-                        cellDiv.classList.remove('wild');
+                        cell.className = 'cell-symbol';
+                        cell.innerHTML = '';
+                        cellDiv.classList.remove('wild', 'spinning');
                     }
                 });
             }
             
-            // Timer functions
+            function startSpinAnimation() {
+                // Add spinning class to all cells with staggered timing
+                for (let i = 0; i < 9; i++) {
+                    const cellDiv = document.querySelector(`[data-index="${i}"]`);
+                    
+                    // Stagger the start of each cell's animation
+                    setTimeout(() => {
+                        cellDiv.classList.add('spinning');
+                        
+                        // Create a more realistic spinning effect
+                        const cell = document.getElementById(`cell-${i}`);
+                        let spinCount = 0;
+                        const maxSpins = 20 + Math.floor(Math.random() * 15); // Random spin duration
+                        
+                        const spinInterval = setInterval(() => {
+                            const randomSymbol = Math.floor(Math.random() * 9);
+                            cell.innerHTML = `<img src="${SYMBOL_IMAGES[randomSymbol]}" alt="Symbol">`;
+                            
+                            spinCount++;
+                            if (spinCount >= maxSpins) {
+                                clearInterval(spinInterval);
+                            }
+                        }, 80 + Math.random() * 40); // Variable speed for realism
+                        
+                        // Store interval to clear later
+                        cellDiv.dataset.spinInterval = spinInterval;
+                    }, i * 100); // Stagger by 100ms per cell
+                }
+            }
+            
+            function stopSpinAnimation() {
+                // Stop spinning with staggered timing (reverse order)
+                for (let i = 8; i >= 0; i--) {
+                    setTimeout(() => {
+                        const cellDiv = document.querySelector(`[data-index="${i}"]`);
+                        cellDiv.classList.remove('spinning');
+                        
+                        if (cellDiv.dataset.spinInterval) {
+                            clearInterval(parseInt(cellDiv.dataset.spinInterval));
+                            delete cellDiv.dataset.spinInterval;
+                        }
+                        
+                        // Show final symbol with a slight bounce effect
+                        const cell = document.getElementById(`cell-${i}`);
+                        const finalSymbol = state.grid[i];
+                        if (finalSymbol !== null) {
+                            cell.innerHTML = `<img src="${SYMBOL_IMAGES[finalSymbol]}" alt="Symbol ${finalSymbol + 1}">`;
+                            
+                            // Add bounce effect
+                            cell.style.transform = 'scale(1.1)';
+                            setTimeout(() => {
+                                cell.style.transform = 'scale(1)';
+                            }, 150);
+                        }
+                    }, (8 - i) * 150); // Reverse stagger
+                }
+            }
+            
             function startTimer() {
                 state.timer = 30;
                 elements.timerContainer.classList.add('active');
@@ -729,7 +822,6 @@
                 }, 100);
             }
             
-            // Public API
             return {
                 init: function() {
                     initGrid();
@@ -737,7 +829,7 @@
                 },
                 
                 moreGames: function() {
-                    alert('More games coming soon!');
+                    // Removed - no longer needed
                 },
                 
                 help: function() {
@@ -749,36 +841,46 @@
                     
                     state.nextGrid = generateGrid();
                     state.grid = [...state.nextGrid];
-                    renderGrid();
-                    showStatus('Preview - Press Play to confirm');
-                    state.previewShown = true;
-                    elements.playBtn.textContent = 'Confirm';
+                    
+                    // Show spin animation
+                    startSpinAnimation();
+                    
+                    // Stop after 2 seconds and show preview
+                    setTimeout(() => {
+                        stopSpinAnimation();
+                        setTimeout(() => {
+                            showStatus('Preview - Press Play to confirm');
+                            state.previewShown = true;
+                            elements.playBtn.textContent = 'Confirm';
+                        }, 1200); // Wait for staggered stop animation
+                    }, 2000);
                 },
                 
                 levelDown: function() {
-                    if (state.playLevel > 10) {
-                        state.playLevel -= 10;
+                    if (state.playLevel > 1) {
+                        state.playLevel -= 1;
                         updateDisplay();
                     }
                 },
                 
                 levelUp: function() {
-                    if (state.playLevel < 1000) {
-                        state.playLevel += 10;
-                        updateDisplay();
-                    }
+                    state.playLevel += 1;
+                    updateDisplay();
                 },
                 
                 maxLevel: function() {
-                    state.playLevel = 1000;
+                    state.playLevel = Math.floor(state.balance);
                     updateDisplay();
                 },
                 
                 play: function() {
                     if (state.stage !== 'IDLE') return;
+                    if (state.balance < state.playLevel) {
+                        showStatus('Insufficient Balance!');
+                        return;
+                    }
                     
                     if (state.previewShown) {
-                        // Confirm preview and start playing
                         state.previewShown = false;
                         state.stage = 'PLAYING';
                         hideStatus();
@@ -786,20 +888,27 @@
                         elements.playBtn.textContent = 'Playing...';
                         elements.playBtn.disabled = true;
                     } else {
-                        // Generate new game
                         state.grid = generateGrid();
-                        renderGrid();
-                        state.stage = 'PLAYING';
-                        hideStatus();
-                        startTimer();
-                        elements.playBtn.textContent = 'Playing...';
-                        elements.playBtn.disabled = true;
+                        
+                        // Show spin animation
+                        startSpinAnimation();
+                        
+                        // Stop after 2.5 seconds and start playing
+                        setTimeout(() => {
+                            stopSpinAnimation();
+                            setTimeout(() => {
+                                state.stage = 'PLAYING';
+                                hideStatus();
+                                startTimer();
+                                elements.playBtn.textContent = 'Playing...';
+                                elements.playBtn.disabled = true;
+                            }, 1200); // Wait for staggered stop animation
+                        }, 2500);
                     }
                 }
             };
         })();
         
-        // Initialize game
         const game = SkillGame;
         game.init();
     </script>
